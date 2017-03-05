@@ -1,0 +1,107 @@
+// The location of the souce java files that we want to
+// transpile into javascript.  If the source is from
+// BlueJ, it is the top-level project directory
+def sourceDir = '../env3d-engine/dist/env3d_template/'
+
+// The destination, this would be the location of the
+// env3d-js www directory
+def destDir = '../env3d-js/dist/'
+
+// We now setup the jsweet transpiler plugin for gradle
+// Documentation at https://github.com/lgrignon/jsweet-gradle-plugin
+buildscript {
+  repositories {
+    mavenCentral()
+    maven { url "http://repository.jsweet.org/artifactory/libs-release-local" }
+    maven { url "http://repository.jsweet.org/artifactory/libs-snapshot-local" }
+    maven { url "http://repository.jsweet.org/artifactory/plugins-release-local" }
+    maven { url "http://repository.jsweet.org/artifactory/plugins-snapshot-local" }
+    maven { url "http://google-diff-match-patch.googlecode.com/svn/trunk/maven" }
+  }
+  dependencies {
+    classpath('org.jsweet:jsweet-gradle-plugin:1.2.1-SNAPSHOT') { //
+      transitive = true }
+  }
+}
+
+apply plugin: 'java'
+apply plugin: 'org.jsweet.jsweet-gradle-plugin'
+
+repositories {
+  mavenCentral()
+  maven { url "http://repository.jsweet.org/artifactory/libs-release-local" }
+  maven { url "http://repository.jsweet.org/artifactory/libs-snapshot-local" }
+
+  maven { url "http://repository.jsweet.org/artifactory/plugins-release-local" }
+  maven { url "http://repository.jsweet.org/artifactory/plugins-snapshot-local" }
+  maven { url "http://google-diff-match-patch.googlecode.com/svn/trunk/maven" }
+}
+
+// No need to compile java, since this is BlueJ's job
+compileJava {
+  enabled = false
+}
+
+dependencies {
+  compile group: 'org.jsweet.candies', name: 'jsweet-core', version:'1.2.0-SNAPSHOT'
+  compile group: 'org.jsweet.candies', name: 'j4ts', version:'0.2.0-SNAPSHOT'
+  compile group: 'org.jsweet', name: 'jsweet-transpiler', version:'1.1.1-SNAPSHOT'
+
+  compile fileTree(include: ['*.jar'], dir: 'libs')
+}
+
+task copyFromEnv() {
+  doLast {
+    delete fileTree(dir: './src/main/java/', include: '**/*.java')
+    copy {
+      println 'copying srouce'
+      from sourceDir
+      into './src/main/java/'
+      include "*.java"
+    }
+  }
+}
+
+task dist() {
+  doLast {
+    copy {
+      println 'copying bundle.js'
+      from 'target/js/'
+      into destDir
+      include 'bundle.js*'
+    }
+  }
+}
+
+task stripMain() {
+  doLast {
+    println 'stripping main call'
+    def gamejs = new File('target/js/game.js');
+    new File('target/js/bundle.js').eachLine {
+      line ->
+        if (!(line =~ /.*\.main\(null\).*/)) {
+          gamejs << line + '\n';
+        }
+    }
+    copy {
+      from 'target/js'
+      into 'target/js'
+      rename('game.js','bundle.js')
+    }
+  }
+}
+
+jsweet {
+  verbose = true
+  encoding = 'UTF-8'
+  sourceMap = true
+  outDir = new File('target/js')
+  targetVersion = 'ES3'
+  includes = ['**/*.java']
+  bundle = true
+}
+
+// Sequence of tasks -- main task is 'dist'
+tasks.jsweet.dependsOn copyFromEnv
+stripMain.dependsOn tasks.jsweet
+dist.dependsOn stripMain
