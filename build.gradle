@@ -53,6 +53,7 @@ dependencies {
   compile fileTree(include: ['*.jar'], dir: 'libs')
 }
 
+def scenecreator = false;
 task copyFromEnv() {
   doLast {
     delete fileTree(dir: './src/main/java/', include: '**/*.java')
@@ -65,6 +66,7 @@ task copyFromEnv() {
       new File(srcDir+'Game.java').withReader { line = it.readLine() }
       if (line.startsWith('//scenecreator auto-generated')) {
         println 'scenecreator world detected'
+        scenecreator = true;
         include "world.txt"
         exclude "Game.java"
       }
@@ -87,6 +89,11 @@ task dist() {
         into dstDir
         include 'world.txt'
       }
+    }
+    if (scenecreator) {
+      java.awt.Desktop.desktop.browse ( new File(dstDir+'scene.html').toURI());
+    } else {
+      java.awt.Desktop.desktop.browse ( new File(dstDir+'game.html').toURI());      
     }
   }
 }
