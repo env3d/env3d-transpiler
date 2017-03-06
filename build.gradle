@@ -1,11 +1,14 @@
-// The location of the souce java files that we want to
-// transpile into javascript.  If the source is from
-// BlueJ, it is the top-level project directory
-def sourceDir = '../env3d-engine/dist/env3d_template/'
+def srcDir = '../'
+def dstDir = '../'
 
-// The destination, this would be the location of the
-// env3d-js www directory
-def destDir = '../env3d-js/dist/'
+if (project.hasProperty('sourceDir')) {
+  println 'setting default sourceDir'
+  srcDir = sourceDir
+}
+if (project.hasProperty('destDir')) {
+  println 'setting default destDir'  
+  dstDir = destDir
+}
 
 // We now setup the jsweet transpiler plugin for gradle
 // Documentation at https://github.com/lgrignon/jsweet-gradle-plugin
@@ -54,10 +57,17 @@ task copyFromEnv() {
   doLast {
     delete fileTree(dir: './src/main/java/', include: '**/*.java')
     copy {
-      println 'copying srouce'
-      from sourceDir
+      println 'copying srouce '+srcDir
+      from srcDir
       into './src/main/java/'
       include "*.java"
+      def line
+      new File(srcDir+'Game.java').withReader { line = it.readLine() }
+      if (line.startsWith('//scenecreator auto-generated')) {
+        println 'scenecreator world detected'
+        include "world.txt"
+        exclude "Game.java"
+      }
     }
   }
 }
@@ -67,8 +77,16 @@ task dist() {
     copy {
       println 'copying bundle.js'
       from 'target/js/'
-      into destDir
+      into dstDir+"js/"
       include 'bundle.js*'
+    }
+    if (new File('src/main/java/world.txt').exists()) {
+      copy {
+        println 'copying world.txt'
+        from 'src/main/java/'
+        into dstDir
+        include 'world.txt'
+      }
     }
   }
 }
@@ -102,6 +120,7 @@ jsweet {
 }
 
 // Sequence of tasks -- main task is 'dist'
+copyFromEnv.dependsOn jsweetClean
 tasks.jsweet.dependsOn copyFromEnv
 stripMain.dependsOn tasks.jsweet
 dist.dependsOn stripMain
